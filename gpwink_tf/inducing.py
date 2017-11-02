@@ -5,9 +5,9 @@ gpwink.integral
 
 This module provides integral shortcuts for kernels and kernel windows.
 """
-from gpwink2.integral import (integrate_kernel_window, integrate_window,
+from gpwink_tf.integral import (integrate_kernel_window, integrate_window,
                               integrate_window_kernel_window)
-from gpwink2.utils import augment
+from gpwink_tf.utils import augment
 
 
 class InducingVariable:

@@ -1,8 +1,8 @@
 import numpy as np
 import tensorflow as tf
 
-from gpwink2 import GLOBAL_DTYPE
-from gpwink2.utils import augment
+from gpwink_tf import GLOBAL_DTYPE
+from gpwink_tf.utils import augment
 
 
 class ComplexGaussian:

@@ -9,8 +9,8 @@ This module provides integral shortcuts for kernels and kernel windows.
 import numpy as np
 import tensorflow as tf
 
-from gpwink2 import GLOBAL_DTYPE
-from gpwink2.integrable import GaussianSquareExponentialWindow
+from gpwink_tf import GLOBAL_DTYPE
+from gpwink_tf.integrable import GaussianSquareExponentialWindow
 
 
 def integrate_window(left_window, right_window=None, scale_left=1,

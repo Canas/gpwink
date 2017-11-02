@@ -2,10 +2,10 @@ import math
 
 import tensorflow as tf
 
-from gpwink2 import GLOBAL_DTYPE
-from gpwink2.integral import integrate_window_kernel_window, integrate_window
-from gpwink2.kullback_leiblers import kl_complex_gaussian
-from gpwink2.utils import my_inner
+from gpwink_tf import GLOBAL_DTYPE
+from gpwink_tf.integral import integrate_window_kernel_window, integrate_window
+from gpwink_tf.kullback_leiblers import kl_complex_gaussian
+from gpwink_tf.utils import my_inner
 
 PI = tf.constant(math.pi, dtype=GLOBAL_DTYPE)
 

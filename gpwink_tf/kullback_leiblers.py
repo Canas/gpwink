@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from gpwink2 import GLOBAL_DTYPE
+from gpwink_tf import GLOBAL_DTYPE
 
 
 def kl_complex_gaussian(m1, c1, m2, c2):
