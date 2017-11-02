@@ -33,6 +33,8 @@ class GPWiNK(GPModel):
         :param filter_kernel: kernel function for filter term
         :param filter_inducing: inducing variable for filter term
         :param noise_inducing: inducing variable for noise term
+        :param filter_variational: variational variable for filter term
+        :param noise_variational: variational variable for noise term
         """
         super().__init__(t_obs, y_obs, filter_kernel)
         self.filter_inducing = filter_inducing

@@ -77,4 +77,4 @@ class NoiseInducingVariable(InducingVariable):
         return augment(self.covariance(), self.pseudo_covariance())
 
     def augmented_interdomain_covariance(self):
-        return self._interdomain_transform.augment()
+        return self.interdomain_covariance().augment()
