@@ -46,47 +46,78 @@ class GPWiNK(GPModel):
         self.sigma_x = tf.constant(1., dtype=GLOBAL_DTYPE)
         self.sigma_y = tf.constant(1., dtype=GLOBAL_DTYPE)
 
+        # properties
+        self._au_inverse = None
+        self._av_inverse = None
+        self._au_inverse_times_qu_mean = None
+        self._av_inverse_times_qv_mean = None
+        self._mu = None
+        self._mv = None
+
+        if not GLOBAL_DTYPE == tf.complex64:
+            self._eps_filter = 1e-10 * tf.eye(1 * self.filter_inducing.n_values,
+                                              dtype=GLOBAL_DTYPE)
+            self._eps_noise = 1e-10 * tf.eye(1 * self.noise_inducing.n_values,
+                                             dtype=GLOBAL_DTYPE)
+        else:
+            self._eps_filter = 1e-10 * tf.eye(2 * self.filter_inducing.n_values,
+                                              dtype=GLOBAL_DTYPE)
+            self._eps_noise = 1e-10 * tf.eye(2 * self.noise_inducing.n_values,
+                                             dtype=GLOBAL_DTYPE)
+
     def au_inverse(self):
-        epsilon = 1e-10 * tf.eye(2 * self.filter_inducing.n_values,
-                                 dtype=GLOBAL_DTYPE)
-        return tf.matrix_inverse(
-            self.filter_inducing.augmented_covariance() + epsilon,
-            name="au_inverse"
-        )
+        if self._au_inverse is None:
+            epsilon = 1e-10 * tf.eye(2 * self.filter_inducing.n_values,
+                                     dtype=GLOBAL_DTYPE)
+            self._au_inverse =  tf.matrix_inverse(
+                self.filter_inducing.augmented_covariance() + self._eps_filter,
+                name="au_inverse"
+            )
+        return self._au_inverse
 
     def av_inverse(self):
-        epsilon = 1e-10 * tf.eye(2 * self.noise_inducing.n_values,
-                                 dtype=GLOBAL_DTYPE)
-        return tf.matrix_inverse(
-            self.noise_inducing.augmented_covariance() + epsilon,
-            name="av_inverse"
-        )
+        if self._av_inverse is None:
+            epsilon = 1e-10 * tf.eye(2 * self.noise_inducing.n_values,
+                                     dtype=GLOBAL_DTYPE)
+            self._av_inverse = tf.matrix_inverse(
+                self.noise_inducing.augmented_covariance() + self._eps_noise,
+                name="av_inverse"
+            )
+        return self._av_inverse
 
     def au_inverse_times_qu_mean(self):
-        epsilon = 1e-10 * tf.eye(2 * self.filter_inducing.n_values,
-                                 dtype=GLOBAL_DTYPE)
-        return tf.matrix_solve(
-            self.filter_inducing.augmented_covariance() + epsilon,
-            self.filter_variational.augmented_mean(),
-            name="au_inverse_time_qu_mean"
-        )
+        if self._au_inverse_times_qu_mean is None:
+            epsilon = 1e-10 * tf.eye(2 * self.filter_inducing.n_values,
+                                     dtype=GLOBAL_DTYPE)
+            self._au_inverse_times_qu_mean = tf.matrix_solve(
+                self.filter_inducing.augmented_covariance() + self._eps_filter,
+                self.filter_variational.augmented_mean(),
+                name="au_inverse_time_qu_mean"
+            )
+        return self._au_inverse_times_qu_mean
 
     def av_inverse_times_qv_mean(self):
-        epsilon = 1e-10 * tf.eye(2 * self.noise_inducing.n_values,
-                                 dtype=GLOBAL_DTYPE)
-        return tf.matrix_solve(
-            self.noise_inducing.augmented_covariance() + epsilon,
-            self.noise_variational.augmented_mean(),
-            name="au_inverse_time_qu_mean"
-        )
+        if self._av_inverse_times_qv_mean is None:
+            epsilon = 1e-10 * tf.eye(2 * self.noise_inducing.n_values,
+                                     dtype=GLOBAL_DTYPE)
+            self._av_inverse_times_qv_mean = tf.matrix_solve(
+                self.noise_inducing.augmented_covariance() + self._eps_noise,
+                self.noise_variational.augmented_mean(),
+                name="au_inverse_time_qu_mean"
+            )
+        return self._av_inverse_times_qv_mean
 
     def mu(self):
-        return self.au_inverse() - self.au_inverse_times_qu_mean() @ \
-               tf.transpose(self.au_inverse_times_qu_mean())
+        if self._mu is None:
+            self._mu = self.au_inverse() - self.au_inverse_times_qu_mean() @ \
+                   tf.transpose(self.au_inverse_times_qu_mean())
+        return self._mu
 
     def mv(self):
-        return self.av_inverse() - self.av_inverse_times_qv_mean() @ \
-               tf.transpose(self.av_inverse_times_qv_mean())
+        if self._mv is None:
+            self._mv = self.av_inverse() - self.av_inverse_times_qv_mean() @ \
+                   tf.transpose(self.av_inverse_times_qv_mean())
+        return self._mv
 
     def mean(self, t_new):
         auh = self.filter_inducing.augmented_interdomain_covariance()
@@ -119,23 +150,24 @@ class GPWiNK(GPModel):
             )
         )
 
-    def build_elbo(self):
-        def build_constant_term():
-            return - 0.5 * self.n * tf.log(2. * PI * self.sigma_y**2) \
+    def elbo(self):
+        constant_term = - 0.5 * self.n * tf.log(2. * PI * self.sigma_y**2) \
                    - 0.5 * (1 / self.sigma_y**2) * tf.reduce_sum(self.y_obs**2)
 
-        def build_linear_term():
-            return tf.reduce_sum(
+        linear_term = 0.
+        quadratic_term = 0.
+        mu = self.mu()
+        mv = self.mv()
+
+        linear_term = tf.reduce_sum(
                 -2.0 * self.y_obs * tf.map_fn(self.mean, self.t_obs)
             )
 
-        def build_quadratic_term():
-            return tf.reduce_sum(
+        quadratic_term = tf.reduce_sum(
                 tf.map_fn(self.second_moment, self.t_obs)
             )
 
-        def build_kl_divergence_term():
-            return tf.add(
+        kl_term = tf.add(
                 kl_complex_gaussian(
                     self.filter_variational.augmented_mean(),
                     self.filter_variational.augmented_covariance(),
@@ -150,5 +182,5 @@ class GPWiNK(GPModel):
                 )
             )
 
-        return build_constant_term() + build_linear_term() + \
-               build_quadratic_term() + build_kl_divergence_term()
+        return constant_term + linear_term + \
+               quadratic_term + kl_term

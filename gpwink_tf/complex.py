@@ -11,6 +11,8 @@ class ComplexGaussian:
         self._mean = mean
         self._cov = cov
         self._pcov = pcov
+        self._a_mean = None
+        self._a_cov = None
 
     @classmethod
     def from_params(cls, mean, alpha, beta, gamma, delta):
@@ -35,7 +37,11 @@ class ComplexGaussian:
         return ComplexGaussian(n_values, mean=mean, cov=cov, pcov=pcov)
 
     def augmented_mean(self):
-        return augment(self._mean)
+        if self._a_mean is None:
+            self._a_mean = augment(self._mean)
+        return self._a_mean
 
     def augmented_covariance(self):
-        return augment(self._cov, self._pcov)
+        if self._a_cov is None:
+            self._a_cov = augment(self._cov, self._pcov)
+        return self._a_cov
