@@ -67,8 +67,8 @@ class GaussianSquareExponentialWindow(Integrable):
             j_omega = tf.constant(0, dtype=GLOBAL_DTYPE)
             j_phi   = tf.constant(0, dtype=GLOBAL_DTYPE)
         else:
-            j_omega = tf.complex(0., j_omega)
-            j_phi   = tf.complex(0., j_phi)
+            j_omega = tf.complex(tf.constant(0.), tf.cast(j_omega, dtype=tf.float32))
+            j_phi   = tf.complex(tf.constant(0.), tf.cast(j_phi, dtype=tf.float32))
 
         return GaussianSquareExponentialWindow(
             sigma=sigma, ct2=-gamma, ct=2 * gamma * centre + j_omega,

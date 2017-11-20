@@ -1,6 +1,8 @@
 import numpy as np
 import tensorflow as tf
 
+from gpwink_tf import GLOBAL_DTYPE
+
 
 def my_inner(a, b):
     """Inner product between two matrices """
@@ -16,6 +18,9 @@ def augment(cov, pcov=None):
     :param pcov: pseudo-covariance matrix (N x N)
     :return: (N x 2N) matrix if pcov=None; else (2N x 2N) matrix
     """
+    if not GLOBAL_DTYPE == tf.complex64:
+        return cov
+
     if pcov is None:
         upper = cov
         lower = tf.conj(cov)
@@ -24,6 +29,7 @@ def augment(cov, pcov=None):
         lower = tf.concat((tf.conj(pcov), tf.conj(cov)), axis=1)
 
     return tf.concat((upper, lower), axis=0)
+
 
 def np_decaying_square_exponential(space, alpha = 1, gamma =1/2 , sigma = 1):
     base = np.zeros(len(space))
