@@ -54,10 +54,12 @@ class GPWiNK(GPModel):
         self._mu = None
         self._mv = None
 
+        # this is doing the same thing for now until covariance augmentation
+        # is not applied if using non-complex dtypes
         if not GLOBAL_DTYPE == tf.complex64:
-            self._eps_filter = 1e-10 * tf.eye(1 * self.filter_inducing.n_values,
+            self._eps_filter = 1e-10 * tf.eye(2 * self.filter_inducing.n_values,
                                               dtype=GLOBAL_DTYPE)
-            self._eps_noise = 1e-10 * tf.eye(1 * self.noise_inducing.n_values,
+            self._eps_noise = 1e-10 * tf.eye(2 * self.noise_inducing.n_values,
                                              dtype=GLOBAL_DTYPE)
         else:
             self._eps_filter = 1e-10 * tf.eye(2 * self.filter_inducing.n_values,
@@ -120,67 +122,79 @@ class GPWiNK(GPModel):
         return self._mv
 
     def mean(self, t_new):
-        auh = self.filter_inducing.augmented_interdomain_covariance()
-        axv = self.noise_inducing.augmented_interdomain_covariance()
-        m_linear = integrate_window(auh, axv, scale_left=-1, shift_left=t_new)
-        return tf.transpose(self.au_inverse_times_qu_mean()) @ \
-               m_linear @ self.av_inverse_times_qv_mean()
+        with tf.variable_scope('first_moment'):
+            auh = self.filter_inducing.augmented_interdomain_covariance()
+            axv = self.noise_inducing.augmented_interdomain_covariance()
+            m_linear = integrate_window(auh, axv, scale_left=-1, shift_left=t_new)
+            return tf.transpose(self.au_inverse_times_qu_mean()) @ \
+                m_linear @ self.av_inverse_times_qv_mean()
 
     def second_moment(self, t_new):
-        auh = self.filter_inducing.augmented_interdomain_covariance()
-        avx = self.noise_inducing.augmented_interdomain_covariance()
-        m_linear = integrate_window(auh, avx, scale_left=-1, shift_left=t_new)
+        with tf.variable_scope('second_moment'):
+            auh = self.filter_inducing.augmented_interdomain_covariance()
+            avx = self.noise_inducing.augmented_interdomain_covariance()
+            m_linear = integrate_window(auh, avx, scale_left=-1, shift_left=t_new)
 
-        term1 = self.kernel.integrate_along_diagonal(scale=-1, shift=t_new)
-        term2 = integrate_window_kernel_window(
-            avx, self.kernel, avx, scale_mid=(-1, -1),
-            shift_mid=(t_new, t_new)
-        )
-        term3 = integrate_window(auh, auh, scale_left=-1, shift_left=t_new,
-                                 scale_right=-1, shift_right=t_new)
-        term4 = m_linear
-        return tf.subtract(
-            tf.subtract(
-                term1,
-                my_inner(self.mv(), term2)
-            ),
-            tf.add(
-                my_inner(self.mu(), term3),
-                my_inner(self.mu() @ term4, term4 @ self.mv())
+            term1 = self.kernel.integrate_along_diagonal(scale=-1, shift=t_new)
+            term2 = integrate_window_kernel_window(
+                avx, self.kernel, avx, scale_mid=(-1, -1),
+                shift_mid=(t_new, t_new)
             )
-        )
-
-    def elbo(self):
-        constant_term = - 0.5 * self.n * tf.log(2. * PI * self.sigma_y**2) \
-                   - 0.5 * (1 / self.sigma_y**2) * tf.reduce_sum(self.y_obs**2)
-
-        linear_term = 0.
-        quadratic_term = 0.
-        mu = self.mu()
-        mv = self.mv()
-
-        linear_term = tf.reduce_sum(
-                -2.0 * self.y_obs * tf.map_fn(self.mean, self.t_obs)
-            )
-
-        quadratic_term = tf.reduce_sum(
-                tf.map_fn(self.second_moment, self.t_obs)
-            )
-
-        kl_term = tf.add(
-                kl_complex_gaussian(
-                    self.filter_variational.augmented_mean(),
-                    self.filter_variational.augmented_covariance(),
-                    0.,
-                    self.filter_inducing.augmented_covariance()
+            term3 = integrate_window(auh, auh, scale_left=-1, shift_left=t_new,
+                                     scale_right=-1, shift_right=t_new)
+            term4 = m_linear
+            return tf.subtract(
+                tf.subtract(
+                    term1,
+                    my_inner(self.mv(), term2)
                 ),
-                kl_complex_gaussian(
-                    self.noise_variational.augmented_mean(),
-                    self.noise_variational.augmented_covariance(),
-                    0.,
-                    self.noise_inducing.augmented_covariance()
+                tf.add(
+                    my_inner(self.mu(), term3),
+                    my_inner(self.mu() @ term4, term4 @ self.mv())
                 )
             )
 
-        return constant_term + linear_term + \
-               quadratic_term + kl_term
+    def elbo(self):
+        with tf.variable_scope('elbo'):
+            constant_term = - 0.5 * self.n * tf.log(2. * PI * self.sigma_y**2) \
+                       - 0.5 * (1 / self.sigma_y**2) * tf.reduce_sum(self.y_obs**2)
+
+            linear_term = 0.
+            quadratic_term = 0.
+
+            # exec some properties once to avoid call errors during tf.map_fn
+            # maybe there is a more elegant solution but for now this fix works
+            mu = self.mu()
+            mv = self.mv()
+            auh = self.filter_inducing.augmented_interdomain_covariance()
+            avx = self.noise_inducing.augmented_interdomain_covariance()
+            m_linear = integrate_window(auh, avx, scale_left=-1, shift_left=self.t_obs[0])
+
+            linear_term = tf.reduce_sum(
+                    -2.0 * self.y_obs * tf.map_fn(self.mean, self.t_obs, name='linear_term')
+                )
+
+            quadratic_term = tf.reduce_sum(
+                    tf.map_fn(self.second_moment, self.t_obs, name='quadratic_term')
+                )
+
+            kl_term = tf.add(
+                    kl_complex_gaussian(
+                        self.filter_variational.augmented_mean(),
+                        self.filter_variational.augmented_covariance(),
+                        0.,
+                        self.filter_inducing.augmented_covariance(),
+                        name='filter_kl'
+                    ),
+                    kl_complex_gaussian(
+                        self.noise_variational.augmented_mean(),
+                        self.noise_variational.augmented_covariance(),
+                        0.,
+                        self.noise_inducing.augmented_covariance(),
+                        name='noise_kl'
+                    ),
+                    name='kl_term'
+                )
+
+            return constant_term + linear_term + \
+                quadratic_term + kl_term

@@ -60,19 +60,39 @@ class GaussianSquareExponentialWindow(Integrable):
         :return:
         """
         sigma   = tf.cast(sigma, dtype=GLOBAL_DTYPE)
-        gamma   = tf.cast(gamma, dtype=GLOBAL_DTYPE)
-        centre  = tf.cast(centre, dtype=GLOBAL_DTYPE)
+        gamma   = tf.cast(gamma, dtype=tf.float64)
+        centre  = tf.cast(centre, dtype=tf.float64)
 
         if not GLOBAL_DTYPE == tf.complex64:
             j_omega = tf.constant(0, dtype=GLOBAL_DTYPE)
             j_phi   = tf.constant(0, dtype=GLOBAL_DTYPE)
         else:
-            j_omega = tf.complex(tf.constant(0.), tf.cast(j_omega, dtype=tf.float32))
-            j_phi   = tf.complex(tf.constant(0.), tf.cast(j_phi, dtype=tf.float32))
+            j_omega = tf.cast(
+                tf.complex(
+                    tf.constant(0., dtype=tf.float64), 
+                    tf.cast(j_omega, dtype=tf.float64)
+                ), 
+                dtype=tf.complex64
+            )
+            j_phi   = tf.cast(
+                tf.complex(
+                    tf.constant(0., dtype=tf.float64), 
+                    tf.cast(j_phi, dtype=tf.float64)
+                ),
+                dtype=tf.complex64
+            )
+
+        c1 = tf.cast(-gamma * centre ** 2, dtype=GLOBAL_DTYPE) + j_phi
+        ct = tf.cast(2 * gamma * centre, dtype=GLOBAL_DTYPE) + j_omega
+        ct2 = -1 * tf.cast(gamma, dtype=GLOBAL_DTYPE)
 
         return GaussianSquareExponentialWindow(
-            sigma=sigma, ct2=-gamma, ct=2 * gamma * centre + j_omega,
-            c1=-gamma * centre ** 2 + j_phi)
+            sigma=sigma, ct2=ct2, ct=ct, c1=c1
+        )
+
+        # return GaussianSquareExponentialWindow(
+        #    sigma=sigma, ct2=-gamma, ct=2 * gamma * centre + j_omega,
+        #    c1=-gamma * centre ** 2 + j_phi)
 
     def get_all_params(self):
         """Return the value of all parameters. """
@@ -206,22 +226,25 @@ class GaussianSquareExponentialKernel(Integrable):
             )
 
     def integrate_along_diagonal(self, scale=1, shift=0):
+        # avoid unsupported type error if global dtype is complex
+        alpha = tf.cast(self.alpha, tf.float64)
+
         # alpha needs to be strictly greater than zero
         # else integral may not be finite
         tf.where(
-            tf.less_equal(self.alpha, tf.zeros_like(self.alpha)),
-            tf.zeros_like(self.alpha),
-            self.alpha
+            tf.less_equal(alpha, tf.zeros_like(alpha)),
+            tf.zeros_like(alpha),
+            alpha
         )
 
         a0 = self.ct2 + self.cs2 + self.cts
         b0 = self.ct + self.cs
         c0 = self.c1
 
-        a = a0 * scale**2
+        a = a0 * tf.square(tf.cast(scale, dtype=GLOBAL_DTYPE))
         b = scale * (b0 + 2 * a0 * shift)
         c = tf.ones_like(shift, dtype=GLOBAL_DTYPE) * \
-            (a0 * shift**2 + b0 * shift + c0)
+            (a0 * tf.square(shift) + b0 * shift + c0)
         return self.sigma * tf.sqrt(np.pi / -a) * tf.exp(b**2 / (4 * -a) + c)
 
 
