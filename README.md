@@ -1,7 +1,7 @@
 # GP-WINK
-This is the repository for code, documentation, and any additional files related to the GP-WINK research.
+This is the repository for code related to the Gaussian Processes with Non-Parametric Kernels research. This work is not fully functional yet and use is discouraged.
 
-# TODO
-- Organize code
-- Make code faster
-
+# Requisites
+- Python 3.4+
+- Numpy
+- Tensorflow
