@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+gpwink_tf.model
+~~~~~~~~~~~~~~~
+This module contains the main Gaussian Process with Non-parametric Kernels model.
+The model provides methods to calculate expectation, moments, variance and the
+Evidence Lower BOund (ELBO) which must be minimized in the optimization step.
+"""
 import math
 
 import tensorflow as tf
@@ -11,8 +19,10 @@ PI = tf.constant(math.pi, dtype=GLOBAL_DTYPE)
 
 
 class GPModel:
+    """Base class for Gaussian Process Model. """
+
     def __init__(self, t_obs, y_obs, kernel):
-        """ Gaussian Process model basis
+        """Gaussian Process model definition.
 
         :param t_obs: observed data indices
         :param y_obs: observed data values
@@ -68,6 +78,7 @@ class GPWiNK(GPModel):
                                              dtype=GLOBAL_DTYPE)
 
     def au_inverse(self):
+        """Inverse of the filter inducing augmented covariance matrix. """
         if self._au_inverse is None:
             epsilon = 1e-10 * tf.eye(2 * self.filter_inducing.n_values,
                                      dtype=GLOBAL_DTYPE)
@@ -78,6 +89,7 @@ class GPWiNK(GPModel):
         return self._au_inverse
 
     def av_inverse(self):
+        """Inverse of the noise inducing augmented covariance matrix. """
         if self._av_inverse is None:
             epsilon = 1e-10 * tf.eye(2 * self.noise_inducing.n_values,
                                      dtype=GLOBAL_DTYPE)
@@ -88,6 +100,8 @@ class GPWiNK(GPModel):
         return self._av_inverse
 
     def au_inverse_times_qu_mean(self):
+        """Inverse of the filter inducing augmented covariance matrix times the
+        augmented mean of the filter variational approximation . """
         if self._au_inverse_times_qu_mean is None:
             epsilon = 1e-10 * tf.eye(2 * self.filter_inducing.n_values,
                                      dtype=GLOBAL_DTYPE)
@@ -99,6 +113,8 @@ class GPWiNK(GPModel):
         return self._au_inverse_times_qu_mean
 
     def av_inverse_times_qv_mean(self):
+        """Inverse of the noise inducing augmented covariance matrix times the
+        augmented mean of the noise variational approximation. """
         if self._av_inverse_times_qv_mean is None:
             epsilon = 1e-10 * tf.eye(2 * self.noise_inducing.n_values,
                                      dtype=GLOBAL_DTYPE)
@@ -110,18 +126,21 @@ class GPWiNK(GPModel):
         return self._av_inverse_times_qv_mean
 
     def mu(self):
+        """Mu matrix defined to avoid redundant calculations. """
         if self._mu is None:
             self._mu = self.au_inverse() - self.au_inverse_times_qu_mean() @ \
                    tf.transpose(self.au_inverse_times_qu_mean())
         return self._mu
 
     def mv(self):
+        """Mv matrix defined to avoid redundant calculations. """
         if self._mv is None:
             self._mv = self.av_inverse() - self.av_inverse_times_qv_mean() @ \
                    tf.transpose(self.av_inverse_times_qv_mean())
         return self._mv
 
     def mean(self, t_new):
+        """Mean of the process given an input. """
         with tf.variable_scope('first_moment'):
             auh = self.filter_inducing.augmented_interdomain_covariance()
             axv = self.noise_inducing.augmented_interdomain_covariance()
@@ -130,6 +149,7 @@ class GPWiNK(GPModel):
                 m_linear @ self.av_inverse_times_qv_mean()
 
     def second_moment(self, t_new):
+        """Second moment of the process given an input. """
         with tf.variable_scope('second_moment'):
             auh = self.filter_inducing.augmented_interdomain_covariance()
             avx = self.noise_inducing.augmented_interdomain_covariance()
@@ -155,6 +175,7 @@ class GPWiNK(GPModel):
             )
 
     def elbo(self):
+        """Evidence Lower Bound of the process given the observations. """
         with tf.variable_scope('elbo'):
             constant_term = - 0.5 * self.n * tf.log(2. * PI * self.sigma_y**2) \
                        - 0.5 * (1 / self.sigma_y**2) * tf.reduce_sum(self.y_obs**2)

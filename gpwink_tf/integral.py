@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-gpwink.integrate
-~~~~~~~~~~~~~~~~
-
+gpwink_tf.integral
+~~~~~~~~~~~~~~~~~~
 This module provides integral shortcuts for kernels and kernel windows.
+The module is tightly coupled with gpwink_tf.integrable as the input
+depends on their definitions which must be stationary.
 """
 
 import numpy as np
@@ -22,6 +23,10 @@ def integrate_window(left_window, right_window=None, scale_left=1,
     variable: 
 
     ∫ W(tau) W(tau).T dtau
+
+    :param left_window: Integrable window object
+    :param right_window: (optional) Integral window object
+    :param scale_left: 
     """
     if right_window is None:
         right_window = left_window
@@ -68,7 +73,7 @@ def integrate_kernel_window(kernel, window, scale_kernel, shift_kernel,
     ∫ K(tau, tau') W(tau) dtau
     """
     window = window.scale_and_shift(scale_window, shift_window)
-    
+
     if conjugate_right:
         window = window.conjugate()
     win_sigma, win_s2, win_s, win_1 = window.get_all_params()
@@ -88,7 +93,7 @@ def integrate_kernel_window(kernel, window, scale_kernel, shift_kernel,
     new_ct2 = ct2 + tf.square(cts) / (4 * cs2)
     new_ct = ct + cts * cs / (2 * cs2)
     new_c1 = tf.square(cs) / (4 * cs2) + c1
-    
+
     return GaussianSquareExponentialWindow(
         sigma=tf.cast(tf.cast(sigma, tf.float64), GLOBAL_DTYPE),
         ct2=tf.cast(tf.cast(new_ct2, tf.float64), GLOBAL_DTYPE),
@@ -111,7 +116,7 @@ def integrate_window_kernel_window(left_window, kernel, right_window,
     left_sigma, left_t2, left_t, left_1 = left_window.get_all_params()
 
     right_window = right_window.scale_and_shift(scale_right, shift_right)
-    
+
     if conjugate_right:
         right_window = right_window.conjugate()
     right_sigma, right_s2, right_s, right_1 = right_window.get_all_params()
@@ -135,15 +140,3 @@ def integrate_window_kernel_window(left_window, kernel, right_window,
     return tf.square(sigma) * 2 * np.pi / tf.sqrt(temp) * tf.exp(
         (-ct2 * tf.square(ct) - cs2 * tf.square(cs) + ct * cs * cts) / temp + c1
     )
-
-
-def _scale_and_shift_window():
-    pass
-
-
-def _scale_and_shift_kernel():
-    pass
-
-
-def _conjugate():
-    pass

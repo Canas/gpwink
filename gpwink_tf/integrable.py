@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-gpwink.integrate
-~~~~~~~~~~~~~~~~
-
+gpwink_tf.integrable
+~~~~~~~~~~~~~~~~~~~~
 This module defines parametrized models that can be used by the
-gpwink.integral module.
+gpwink.integral module. Currently supported Integrable functions
+are:
+
+- Windows: Gaussian Square Exponential
+- Kernels: Gaussian Decaying Square Exponenetial
+
+Other window-kernel combinations may be explored in the future.
 """
 
 import numpy as np
@@ -15,7 +20,8 @@ from gpwink_tf.utils import augment
 
 
 class Integrable:
-    """Generalized Integrable Functions model."""
+    """Generalized Integrable Functions model. """
+
     def __init__(self, **params):
         self.params = params
 
@@ -25,7 +31,21 @@ class Integrable:
 
 
 class GaussianSquareExponentialWindow(Integrable):
+    """Gaussian Square Exponential function. """
+
     def __init__(self, **params):
+        """Create a raw Gaussian Square Exponential Window.
+
+        This method initializes a GaussianSquareExponentialWindow class 
+        with known constant, linear and quadratic parameters. To initialize
+        via the more familiar physical interpretation parameters use the 
+        new_window class method.
+        
+        :param params: dictionary with scale factor sigma,
+                       constant parameter c1, 
+                       linear parameter ct,
+                       quadractic parameter ct2
+        """
         try:
             sigma = params['sigma']
             ct2   = params['ct2']
@@ -51,6 +71,7 @@ class GaussianSquareExponentialWindow(Integrable):
         intepretation of parameters.
 
         ∫ σ exp( -1/(2*l^2) * (t - s)^2 + j(ωt + φ) )
+        where σ, l > 0
 
         :param sigma: scaling parameter σ
         :param gamma: inverse of lengthscale parameter 1/(2*l^2)
@@ -90,10 +111,6 @@ class GaussianSquareExponentialWindow(Integrable):
             sigma=sigma, ct2=ct2, ct=ct, c1=c1
         )
 
-        # return GaussianSquareExponentialWindow(
-        #    sigma=sigma, ct2=-gamma, ct=2 * gamma * centre + j_omega,
-        #    c1=-gamma * centre ** 2 + j_phi)
-
     def get_all_params(self):
         """Return the value of all parameters. """
         return self.sigma, self.ct2, self.ct, self.c1
@@ -122,6 +139,7 @@ class GaussianSquareExponentialWindow(Integrable):
         )
 
     def augment(self):
+        """Creates a new GaussianExponentialWindow using augmented attrs. """
         return GaussianSquareExponentialWindow(
             sigma=augment(self.sigma),
             ct2=augment(self.ct2),
@@ -131,7 +149,21 @@ class GaussianSquareExponentialWindow(Integrable):
 
 
 class GaussianSquareExponentialKernel(Integrable):
+    """Gaussian Decaying Square Exponential kernel function. """
+
     def __init__(self, **params):
+        """Create a raw Gaussian Square Exponential Kernel.
+
+        This method initializes a GaussianSquareExponentialKernel class 
+        with known constant, linear and quadratic parameters. To initialize
+        via the more familiar physical interpretation parameters use the 
+        new_kernel class method.
+        
+        :param params: dictionary with scale factor sigma,
+                       constant parameter c1, 
+                       linear parameters ct, cs and cts,
+                       quadractic parameters ct2 and cs2
+        """
         try:
             sigma = params['sigma']
             ct2   = params['ct2']
@@ -154,13 +186,16 @@ class GaussianSquareExponentialKernel(Integrable):
 
     @classmethod
     def new_kernel(cls, sigma, gamma, alpha):
-        """Generates a Gaussian Exponential Kernel using the physical
+        """Generates a Gaussian Decaying Square Exponential Kernel using the physical
         intepretation of parameters.
 
-        :param sigma:
-        :param gamma:
-        :param alpha:
-        :return:
+        K(t1, t2) = σ^2 * exp(-α * t1^2) * exp(-γ * (t1 - t2)^2) * exp(-α * t2^2)
+        where σ, α, γ > 0
+
+        :param sigma: power output parameter σ
+        :param gamma: parameter that controls the characteristic timescale 1/sqrt(γ)
+        :param alpha: parameter that controls the temporal extend 1/sqrt(α)
+        :return: GaussianSquareExponentialKernel object
         """
         sigma = tf.cast(sigma, dtype=GLOBAL_DTYPE)
         gamma = tf.cast(gamma, dtype=GLOBAL_DTYPE)
@@ -186,7 +221,7 @@ class GaussianSquareExponentialKernel(Integrable):
                self.c1
 
     def scale_and_shift(self, scale=(1, 1), shift=(0, 0), inline=False):
-        """ Scales and shifts the kernel.
+        """Scales and shifts the kernel.
 
         :param scale: tuple with scales for t and s
         :param shift: tuple with shifts for t and s
