@@ -39,7 +39,7 @@ def integrate_window(left_window, right_window=None, scale_left=1,
     ct = left_t + tf.transpose(right_s)
     c1 = left_1 + tf.transpose(right_1)
 
-    return sigma**2 * tf.sqrt(np.pi / -ct2) * tf.exp(ct**2 / (4 * -ct2) + c1)
+    return tf.square(sigma) * tf.sqrt(np.pi / -ct2) * tf.exp(tf.square(ct) / (4 * -ct2) + c1)
 
 
 def integrate_kernel(kernel, scale=(1, 1), shift=(0, 0)):
@@ -55,7 +55,7 @@ def integrate_kernel(kernel, scale=(1, 1), shift=(0, 0)):
     ct2 += cs2 + cts  # why?
     ct += cs  # why?
 
-    return sigma**2 * tf.sqrt(np.pi/-ct2) * tf.exp(ct**2 / (4 * -ct2) + c1)
+    return tf.square(sigma) * tf.sqrt(np.pi/-ct2) * tf.exp(tf.square(ct) / (4 * -ct2) + c1)
 
 
 def integrate_kernel_window(kernel, window, scale_kernel, shift_kernel,
@@ -85,9 +85,9 @@ def integrate_kernel_window(kernel, window, scale_kernel, shift_kernel,
     cs = kern_s + win_s + tf.zeros_like(sigma)
     c1 = kern_1 + win_1 + tf.zeros_like(sigma)
 
-    new_ct2 = ct2 + cts**2 / (4 * cs2)
+    new_ct2 = ct2 + tf.square(cts) / (4 * cs2)
     new_ct = ct + cts * cs / (2 * cs2)
-    new_c1 = cs**2 / (4 * cs2) + c1
+    new_c1 = tf.square(cs) / (4 * cs2) + c1
     
     return GaussianSquareExponentialWindow(
         sigma=tf.cast(tf.cast(sigma, tf.float64), GLOBAL_DTYPE),
@@ -130,10 +130,10 @@ def integrate_window_kernel_window(left_window, kernel, right_window,
     cs = mid_s + tf.transpose(right_s) + tf.zeros_like(sigma)
     c1 = left_1 + mid_1 + tf.transpose(right_1) + tf.zeros_like(sigma)
 
-    temp = 4 * ct2 * cs2 - cts ** 2
+    temp = 4 * ct2 * cs2 - tf.square(cts)
 
-    return sigma ** 2 * 2 * np.pi / tf.sqrt(temp) * tf.exp(
-        (-ct2 * ct ** 2 - cs2 * cs ** 2 + ct * cs * cts) / temp + c1
+    return tf.square(sigma) * 2 * np.pi / tf.sqrt(temp) * tf.exp(
+        (-ct2 * tf.square(ct) - cs2 * tf.square(cs) + ct * cs * cts) / temp + c1
     )
 
 

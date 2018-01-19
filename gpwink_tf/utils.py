@@ -18,8 +18,8 @@ def augment(cov, pcov=None):
     :param pcov: pseudo-covariance matrix (N x N)
     :return: (N x 2N) matrix if pcov=None; else (2N x 2N) matrix
     """
-    if not GLOBAL_DTYPE == tf.complex64:
-        return cov
+    # if not GLOBAL_DTYPE == tf.complex64:
+    #    return cov
 
     if pcov is None:
         upper = cov
