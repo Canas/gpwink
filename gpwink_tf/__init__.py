@@ -1,3 +1,3 @@
 import tensorflow as tf
 
-GLOBAL_DTYPE = tf.float64
+GLOBAL_DTYPE = tf.complex64
